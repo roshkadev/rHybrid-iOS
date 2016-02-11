@@ -569,6 +569,46 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 self.view.layoutIfNeeded();
             }
             
+            if params["showAlert"] != nil {
+                let message = params["showAlert"] as! String;
+                var title : String? = params["title"] as? String
+                var buttonText : String? = params["button_text"] as? String
+                
+                if(title == nil) {
+                    title = "Mensaje";
+                }
+                
+                if(buttonText == nil) {
+                    buttonText = "Aceptar";
+                }
+                
+                let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertControllerStyle.Alert)
+                
+                alert.addAction(UIAlertAction(title: buttonText, style: UIAlertActionStyle.Default, handler: nil))
+                
+                self.presentViewController(alert, animated: true, completion: nil)
+            }
+            
+            if params["showDatePicker"] != nil {
+                let datePicker = RHYCustomPickerView();
+                
+                datePicker.translatesAutoresizingMaskIntoConstraints = false
+                self.view!.addSubview(datePicker)
+                
+                let horizontalContraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterX, multiplier: 1, constant: 0)
+                view.addConstraint(horizontalContraint)
+                
+                let verticalConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1, constant: 0)
+                view.addConstraint(verticalConstraint)
+                
+                let widthConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
+                view.addConstraint(widthConstraint)
+                
+                let heightConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
+                view.addConstraint(heightConstraint)
+                
+                self.view.layoutIfNeeded();
+            }
             // We handled JavaScript communication, so there is no page to be loaded.
             return false
         }
