@@ -23,10 +23,14 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
     var javaScripts: NSMutableArray!
     let statusBarView = UIView()
     var onLoadListeners = [OnLoadListener]()
+    var uiWebViewNavigationBarConstraint : NSLayoutConstraint!
+    var uiWebViewStatusBarConstraint : NSLayoutConstraint!
+    var showNavigationBar: Bool = false
+    var form: NSData?
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        println(self)
+        print(self)
         
         // We set this to 'false' so that the contents of the web view uses the full height
         // of the web view.
@@ -42,10 +46,11 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         // Make the array of javascripts to inject into every page.
         let bundle = NSBundle.mainBundle()
         javaScripts = NSMutableArray()
-        for jsFile in ["rhy", "rhy-ios"] {
-            let path = NSBundle.mainBundle().bundlePath.stringByAppendingPathComponent("rHybrid-JS/\(jsFile).js")
-            let javaScript = String(contentsOfFile: path, encoding: NSUTF8StringEncoding, error: nil)
-            javaScripts.addObject(javaScript!)
+        for jsFile in ["rhy", "rhy-ios", "rsk-utils"] {
+            var path = NSBundle.mainBundle().bundlePath
+            path = path.stringByAppendingString("/\(jsFile).js")
+            let javaScript = try! String(contentsOfURL: NSURL(fileURLWithPath: path), encoding: NSUTF8StringEncoding)
+            javaScripts.addObject(javaScript)
         }
         
         // Make a web view and add it to the screen.
@@ -53,18 +58,18 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         
         // Set the web view to use the full width except if this screen is the menu screen, which has a right margin.
         // Also, full height (except for the status bar margin).
-        self.uiWebView.setTranslatesAutoresizingMaskIntoConstraints(false)
+        self.uiWebView.translatesAutoresizingMaskIntoConstraints = false
         self.view.addSubview(self.uiWebView)
         self.view.addConstraint(NSLayoutConstraint(item: self.view, attribute: .Left, relatedBy: .Equal, toItem: self.uiWebView, attribute: .Left, multiplier: 1, constant: 0))
         self.menuOverhangConstraint = NSLayoutConstraint(item: self.uiWebView, attribute: NSLayoutAttribute.Right, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Right, multiplier: 1, constant: 0)
         self.view.addConstraint(self.menuOverhangConstraint!)
         
-        self.statusBarView.setTranslatesAutoresizingMaskIntoConstraints(false)
+        self.statusBarView.translatesAutoresizingMaskIntoConstraints = false
         self.view.addSubview(self.statusBarView)
-        self.view.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|[statusBarView]|", options: NSLayoutFormatOptions(0), metrics: nil, views: ["statusBarView": self.statusBarView]))
+        self.view.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|[statusBarView]|", options: NSLayoutFormatOptions(rawValue: 0), metrics: nil, views: ["statusBarView": self.statusBarView]))
         self.view.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat(
             "V:|[statusBarView(20)][uiWebView]|",
-            options: NSLayoutFormatOptions(0),
+            options: NSLayoutFormatOptions(rawValue: 0),
             metrics: nil,
             views: ["uiWebView": self.uiWebView, "statusBarView": self.statusBarView]))
         
@@ -85,9 +90,39 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         
         // If this screen was passed a HTML page, open it. If not, open the default screen.
         if (HTMLFile == nil) {
-            loadWebViewWithHTMLFile(self.uiWebView, file: "screen1.html")
+            loadWebViewWithHTMLFile(self.uiWebView, file: "index.html")
         } else {
             loadWebViewWithHTMLFile(self.uiWebView, file: HTMLFile)
+        }
+        
+        self.uiWebViewNavigationBarConstraint = NSLayoutConstraint(item: self.uiWebView, attribute: .Top, relatedBy: .Equal, toItem: self.view, attribute: .Top, multiplier: 1, constant: 64)
+        self.uiWebViewStatusBarConstraint = NSLayoutConstraint(item: self.uiWebView, attribute: .Top, relatedBy: .Equal, toItem: self.view, attribute: .Top, multiplier: 1, constant: 20)
+        
+        if(self.showNavigationBar) {
+            self.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+            self.navigationController?.setNavigationBarHidden(false, animated: true)
+        } else {
+            self.view.addConstraint(self.uiWebViewStatusBarConstraint)
+            self.navigationController?.setNavigationBarHidden(true, animated: true)
+        }
+        
+        self.view.layoutIfNeeded()
+    }
+    
+    override func viewDidAppear(animated: Bool) {
+        super.viewDidAppear(animated)
+        
+//        let previousViewController = self.navigationController!.topViewController as! RHYWebViewController
+//        if(!previousViewController.showNavigationBar) {
+//            self.navigationController?.setNavigationBarHidden(true, animated: false)
+//        }
+        
+        if(self.showNavigationBar) {
+            self.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+            self.navigationController?.setNavigationBarHidden(false, animated: false)
+        } else {
+            self.view.addConstraint(self.uiWebViewStatusBarConstraint)
+            self.navigationController?.setNavigationBarHidden(true, animated: false)
         }
     }
     
@@ -98,10 +133,6 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         // Note that this method, viewWillDisappear, is called on the screen being popped.
         // isMovingFromParentViewController returns true on the screen being popped, and topViewController already
         // is the previous screen.
-        if self.isMovingFromParentViewController() {
-            let previousViewController = self.navigationController!.topViewController as! RHYWebViewController
-            //            previousViewController.uiWebView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.setStatusBarColor()")
-        }
     }
     
     
@@ -129,20 +160,21 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
     func webView(webView: UIWebView, shouldStartLoadWithRequest request: NSURLRequest, navigationType: UIWebViewNavigationType) -> Bool {
         
         // If the request uses our URL Scheme, this call corresponds to us.
-        if request.URL!.scheme! == RHY_URL_SCHEME {
+        if request.URL!.scheme == "rhybrid" {
             
             // Get the parameters passes as query parameters from the URL.
             var query = request.URL!.query!.stringByReplacingPercentEscapesUsingEncoding(NSUTF8StringEncoding)!
-            var optionsJSON = query.componentsSeparatedByString("=")[1]
-            let params = RHYUtils.objectForJSONString(JSONString: optionsJSON) as! NSDictionary
-            println("params of\(self.HTMLFile): \(params)")
+//            var optionsJSON = query.componentsSeparatedByString("=")[1]
+//            let params = RHYUtils.objectForJSONString(JSONString: optionsJSON) as! NSDictionary
+            let params = RHYUtils.dictionaryFromQueryParams(query)
+            print("params of\(self.HTMLFile): \(params)")
             
             
             if let keys = params["getValuesForKeys"] as? NSArray {
                 
                 var response = NSMutableDictionary()
                 let timestamp = RHYUtils.rfc822DateAsEscapedString()
-                let mobileID = UIDevice.currentDevice().identifierForVendor.UUIDString
+                let mobileID = UIDevice.currentDevice().identifierForVendor!.UUIDString
                 let clientSecret = ""
                 
                 for key in keys {
@@ -194,8 +226,17 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 
                 self.activityIndictator = MBProgressHUD(view:self.view)
                 self.activityIndictator.animationType = MBProgressHUDAnimationFade
+                
                 self.activityIndictator.labelText = "Loading..."
                 self.activityIndictator.detailsLabelText = "please wait..."
+                
+                if let title = params["title"] as? String {
+                    self.activityIndictator.labelText = title;
+                }
+                if let message = params["message"] as? String {
+                    self.activityIndictator.detailsLabelText = message;
+                }
+                
                 self.view.addSubview(self.activityIndictator)
                 self.activityIndictator.show(true)
             }
@@ -209,12 +250,25 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
             
             if let newScreen = params["newScreen"] as? String {
                 if newScreen.hasSuffix(".html") {
-                    var nextScreen = RHYWebViewController()
+                    let nextScreen = RHYWebViewController()
+                    let showStatusBar = params["showNavigationBar"] as? String
                     nextScreen.HTMLFile = newScreen
                     nextScreen.menuContainerViewController = self.menuContainerViewController
+                    
+                    if(showStatusBar == "true") {
+                        nextScreen.showNavigationBar = true;
+//                        self.navigationController?.setNavigationBarHidden(false, animated: true)
+//                        nextScreen.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+                    } else {
+                        nextScreen.showNavigationBar = false;
+//                        self.navigationController?.setNavigationBarHidden(true, animated: true)
+//                        nextScreen.view.addConstraint(self.uiWebViewStatusBarConstraint)
+                    }
+                    
                     self.navigationController?.pushViewController(nextScreen, animated: true)
                 } else {
-                    var nextScreen = self.storyboard?.instantiateViewControllerWithIdentifier(newScreen) as! UIViewController
+                    var nextScreen = self.storyboard!.instantiateViewControllerWithIdentifier(newScreen)
+//                    self.navigationController?.pushViewController(nextScreen, animated: true)
                     self.navigationController?.pushViewController(nextScreen, animated: true)
                 }
             }
@@ -306,7 +360,7 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 var rightNavigationController = self.menuContainerViewController.menuViewController as! UINavigationController
                 
                 // Get the view controller that is currently showing from the right stack of screens.
-                var rightViewController: UIViewController = rightNavigationController.viewControllers.last as! UIViewController
+                var rightViewController = rightNavigationController.viewControllers.last!
                 
                 // If the selected option is already open, don't do anything.
                 let isHTMLScreen                    = fileName.hasSuffix(".html")
@@ -328,9 +382,9 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                     // given file, instantiate it, and open it.
                     var appName: String = NSBundle.mainBundle().objectForInfoDictionaryKey("CFBundleName") as! String
                     appName = appName.stringByReplacingOccurrencesOfString("-", withString: "_")
-                    var anyobjectype : AnyObject.Type = NSClassFromString("\(appName).\(fileName)")
+                    var anyobjectype : AnyObject.Type = NSClassFromString("\(appName).\(fileName)")!
                     var nsobjectype : NSObject.Type = anyobjectype as! NSObject.Type
-                    var nextScreen: RHYViewController = nsobjectype() as! RHYViewController
+                    var nextScreen: RHYViewController = nsobjectype.init() as! RHYViewController
                     nextScreen.menuContainerViewController = self.menuContainerViewController
                     rightNavigationController.viewControllers = [nextScreen]
                 }
@@ -411,7 +465,108 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 } else {
                     formFactor = "SMARTPHONE"
                 }
-                webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.response = '\(formFactor)'")
+                webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.response = \"'\(formFactor)'\"")
+            }
+            
+            if let key = params["getValueForKey"] as? String {
+                
+                var value = RHYValueForKey.getValueForKey(key) as String!
+                
+//                print(value!)
+                if(value == nil) {
+                    value = "null"
+                }
+                
+                var json = (try? String(data: NSJSONSerialization.dataWithJSONObject([value], options: NSJSONWritingOptions(rawValue: 0)), encoding: NSUTF8StringEncoding)!)!
+                json = json.substringWithRange(Range<String.Index>(start: json.startIndex.advancedBy(2), end: json.endIndex.advancedBy(-2)))
+                
+                webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.response = '\(json)'")
+            }
+            
+            if let key = params["setValueForKey"] as? String {
+                
+                RHYValueForKey.setValueForKey(key, value: params["value"]!)
+                
+//                print(value!)
+                
+//                webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.response = '\(value!)'")
+            }
+            
+            if params["showNavigationBar"] != nil {
+                let enabled = params["showNavigationBar"] as! String!
+                if(enabled == "true") {
+                    self.navigationController!.setNavigationBarHidden(false, animated: false)
+                    self.uiWebView.removeConstraint(self.uiWebViewStatusBarConstraint)
+                    self.uiWebView.addConstraint(self.uiWebViewNavigationBarConstraint)
+                    
+                    
+                } else {
+                    self.navigationController!.setNavigationBarHidden(true, animated: false)
+                    self.uiWebView.removeConstraint(self.uiWebViewNavigationBarConstraint)
+                    self.uiWebView.addConstraint(self.uiWebViewStatusBarConstraint)
+                }
+            }
+            
+            /**
+             * PAGO DE SERVICIOS. (Sólo para EFICASH) Al final no se usa, eliminar al terminar.
+             */
+            if params["pay_form"] != nil {
+                let nextScreen = RHYWebViewController()
+                let showStatusBar = params["showNavigationBar"] as? String
+                nextScreen.HTMLFile = "pago_servicios.html"
+                
+                if(showStatusBar == "true") {
+                    nextScreen.showNavigationBar = true;
+                    //                        self.navigationController?.setNavigationBarHidden(false, animated: true)
+                    //                        nextScreen.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+                } else {
+                    nextScreen.showNavigationBar = false;
+                    //                        self.navigationController?.setNavigationBarHidden(true, animated: true)
+                    //                        nextScreen.view.addConstraint(self.uiWebViewStatusBarConstraint)
+                }
+                
+                self.navigationController?.pushViewController(nextScreen, animated: true)
+            }
+            
+            if params["showAlert"] != nil {
+                let message = params["showAlert"] as! String;
+                var title : String? = params["title"] as? String
+                var buttonText : String? = params["button_text"] as? String
+                
+                if(title == nil) {
+                    title = "Mensaje";
+                }
+                
+                if(buttonText == nil) {
+                    buttonText = "Aceptar";
+                }
+                
+                let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertControllerStyle.Alert)
+                
+                alert.addAction(UIAlertAction(title: buttonText, style: UIAlertActionStyle.Default, handler: nil))
+                
+                self.presentViewController(alert, animated: true, completion: nil)
+            }
+            
+            if params["showDatePicker"] != nil {
+                let datePicker = RHYCustomPickerView();
+                
+                datePicker.translatesAutoresizingMaskIntoConstraints = false
+                self.view!.addSubview(datePicker)
+                
+                let horizontalContraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterX, multiplier: 1, constant: 0)
+                view.addConstraint(horizontalContraint)
+                
+                let verticalConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1, constant: 0)
+                view.addConstraint(verticalConstraint)
+                
+                let widthConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
+                view.addConstraint(widthConstraint)
+                
+                let heightConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
+                view.addConstraint(heightConstraint)
+                
+                self.view.layoutIfNeeded();
             }
             
             // We handled JavaScript communication, so there is no page to be loaded.
@@ -420,6 +575,14 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         
         // There was no JavaScript communication to handle, so go ahead and load the page.
         return true
+    }
+    
+    func renderFormData(data: NSData) -> Void {
+        let string = NSString(data: data, encoding: NSUTF8StringEncoding)! as String
+        var json = (try? String(data: NSJSONSerialization.dataWithJSONObject([string], options: NSJSONWritingOptions(rawValue: 0)), encoding: NSUTF8StringEncoding)!)!
+        json = json.substringWithRange(Range<String.Index>(start: json.startIndex.advancedBy(2), end: json.endIndex.advancedBy(-2)))
+        
+        self.uiWebView.stringByEvaluatingJavaScriptFromString("renderForm(\"\(json)\")")
     }
     
     func webViewDidStartLoad(webView: UIWebView) {
@@ -442,11 +605,14 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         // window indicates whether the web view is currently visible.
         
         if (webView.window != nil) {
-            webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.setStatusBarColor()")
+            //webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.setStatusBarColor()")
         }
         
         for onLoadListener in self.onLoadListeners {
             onLoadListener(webView: webView)
+        }
+        if(self.form != nil) {
+            self.renderFormData(self.form!)
         }
     }
     
@@ -468,9 +634,9 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
     //    class Test {var xyz = 0}
     //    func initScreenFromViewControllerString(className: String) -> UIViewController {
     //        var target = NSBundle.mainBundle().objectForInfoDictionaryKey("RSKTargetName") as! String
-    //        println("\(target)")
-    //        println("\(_stdlib_getTypeName(ITAGeoNativeScreenViewController()))")
-    //        println("\(_stdlib_getTypeName(Test()))")
+    //        print("\(target)")
+    //        print("\(_stdlib_getTypeName(ITAGeoNativeScreenViewController()))")
+    //        print("\(_stdlib_getTypeName(Test()))")
     //
     //
     //
@@ -478,11 +644,13 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
     //        let appName = NSBundle.mainBundle().objectForInfoDictionaryKey("CFBundleName") as String
     //        let appNameNoSpaces = appName.stringByReplacingOccurrencesOfString(" ", withString: "_", options: .LiteralSearch, range: nil)
     //        let mangledClassName = "_TtC\(countElements(appNameNoSpaces))\(appNameNoSpaces)\(countElements(className))\(className)"
-    //        println(mangledClassName)
+    //        print(mangledClassName)
     //        var anyobjectype : AnyObject.Type = NSClassFromString(mangledClassName)
     //        var nsobjectype : NSObject.Type = anyobjectype as NSObject.Type
     //        var screen: UIViewController = nsobjectype() as UIViewController
     //        return screen
     //    }
+    
+    
 }
 

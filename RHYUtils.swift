@@ -22,27 +22,19 @@ class RHYUtils: NSObject {
         let dateFormatter = NSDateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss z"
         let formattedDateString = dateFormatter.stringFromDate(NSDate())
-        let escapedDateString = formattedDateString.stringByReplacingOccurrencesOfString("+", withString: "%2b", options: .allZeros, range: nil)
+        let escapedDateString = formattedDateString.stringByReplacingOccurrencesOfString("+", withString: "%2b", options: NSStringCompareOptions(rawValue: 0), range: nil)
         return escapedDateString
     }
     
     class func JSONStringFromObject(dictionary object: NSDictionary) -> NSString? {
-        var error: NSError?
-        var jsonData =  NSJSONSerialization.dataWithJSONObject(object, options: NSJSONWritingOptions.allZeros, error: &error)
-        var jsonString: NSString
-        if (jsonData == nil) {
-            println("Could not convert JSON string to NSDictionary.")
-            return nil
-        } else {
-            jsonString = NSString(data: jsonData!, encoding: NSUTF8StringEncoding)!
-        }
+        let jsonData = try! NSJSONSerialization.dataWithJSONObject(object, options: NSJSONWritingOptions(rawValue: 0))
+        let jsonString = NSString(data: jsonData, encoding: NSUTF8StringEncoding)!
         return jsonString
     }
     
     class func objectForJSONString(JSONString string: NSString) -> AnyObject {
-        var data = string.dataUsingEncoding(NSUTF8StringEncoding)
-        var error: NSError?
-        return NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions.allZeros, error: &error)!
+        let data = string.dataUsingEncoding(NSUTF8StringEncoding)
+        return try! NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions(rawValue: 0))
     }
     
     
@@ -71,17 +63,17 @@ class RHYUtils: NSObject {
     class func statusBar(inView view:UIView) {
         var statusBar = UIView()
         statusBar.backgroundColor = UIColor().RSKDodgerBlue
-        statusBar.setTranslatesAutoresizingMaskIntoConstraints(false)
+        statusBar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(statusBar)
         view.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat(
             "H:|[statusBar]|",
-            options: NSLayoutFormatOptions(0),
+            options: NSLayoutFormatOptions(rawValue: 0),
             metrics: nil,
             views: ["statusBar": statusBar]))
         
         view.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat(
             "V:|[statusBar(64)]",
-            options: NSLayoutFormatOptions(0),
+            options: NSLayoutFormatOptions(rawValue: 0),
             metrics: nil,
             views: ["statusBar": statusBar]))
     }
@@ -101,10 +93,7 @@ extension UIFont {
 
 extension NSDictionary {
     func JSONString_rsk() -> NSString? {
-        var error: NSError?
-        if let JSONData = NSJSONSerialization.dataWithJSONObject(self, options: nil, error: &error) {
-            return NSString(data: JSONData, encoding: NSUTF8StringEncoding)!
-        }
-        return nil
+        let JSONData = try! NSJSONSerialization.dataWithJSONObject(self, options: NSJSONWritingOptions(rawValue: 0))
+        return NSString(data: JSONData, encoding: NSUTF8StringEncoding)!
     }
 }
