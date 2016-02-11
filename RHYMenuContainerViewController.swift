@@ -26,7 +26,7 @@ class RSKMenuContainerViewController: UIViewController {
     var centerNavigationController: UINavigationController?
     
     required init(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder);
+        super.init(coder: aDecoder)!;
     }
     
     init(leftViewController: UIViewController, mainViewController: UIViewController) {
