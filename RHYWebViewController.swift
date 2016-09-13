@@ -38,7 +38,7 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         
         
         // Set the default status bar text color (remember to set 'View controller-based status bar' to 'NO' in the target's plist).
-        UIApplication.sharedApplication().setStatusBarStyle(UIStatusBarStyle.LightContent, animated:false)
+        UIApplication.sharedApplication().setStatusBarStyle(.Default, animated:false)
         
         // Hide the navigation bar (we have our own navigation bar in HTML).
         self.navigationController?.setNavigationBarHidden(true, animated: false)
@@ -95,16 +95,16 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
             loadWebViewWithHTMLFile(self.uiWebView, file: HTMLFile)
         }
         
-        self.uiWebViewNavigationBarConstraint = NSLayoutConstraint(item: self.uiWebView, attribute: .Top, relatedBy: .Equal, toItem: self.view, attribute: .Top, multiplier: 1, constant: 64)
+//        self.uiWebViewNavigationBarConstraint = NSLayoutConstraint(item: self.uiWebView, attribute: .Top, relatedBy: .Equal, toItem: self.view, attribute: .Top, multiplier: 1, constant: 64)
         self.uiWebViewStatusBarConstraint = NSLayoutConstraint(item: self.uiWebView, attribute: .Top, relatedBy: .Equal, toItem: self.view, attribute: .Top, multiplier: 1, constant: 20)
         
-        if(self.showNavigationBar) {
-            self.view.addConstraint(self.uiWebViewNavigationBarConstraint)
-            self.navigationController?.setNavigationBarHidden(false, animated: true)
-        } else {
-            self.view.addConstraint(self.uiWebViewStatusBarConstraint)
-            self.navigationController?.setNavigationBarHidden(true, animated: true)
-        }
+//        if(self.showNavigationBar) {
+//            self.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+//            self.navigationController?.setNavigationBarHidden(false, animated: true)
+//        } else {
+//            self.view.addConstraint(self.uiWebViewStatusBarConstraint)
+//            self.navigationController?.setNavigationBarHidden(true, animated: true)
+//        }
         
         self.view.layoutIfNeeded()
     }
@@ -112,18 +112,13 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
         
-//        let previousViewController = self.navigationController!.topViewController as! RHYWebViewController
-//        if(!previousViewController.showNavigationBar) {
+//        if(self.showNavigationBar) {
+//            self.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+//            self.navigationController?.setNavigationBarHidden(false, animated: false)
+//        } else {
+//            self.view.addConstraint(self.uiWebViewStatusBarConstraint)
 //            self.navigationController?.setNavigationBarHidden(true, animated: false)
 //        }
-        
-        if(self.showNavigationBar) {
-            self.view.addConstraint(self.uiWebViewNavigationBarConstraint)
-            self.navigationController?.setNavigationBarHidden(false, animated: false)
-        } else {
-            self.view.addConstraint(self.uiWebViewStatusBarConstraint)
-            self.navigationController?.setNavigationBarHidden(true, animated: false)
-        }
     }
     
     override func viewWillDisappear(animated: Bool) {
@@ -133,6 +128,11 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         // Note that this method, viewWillDisappear, is called on the screen being popped.
         // isMovingFromParentViewController returns true on the screen being popped, and topViewController already
         // is the previous screen.
+    }
+    
+    override func viewWillAppear(animated: Bool) {
+        super.viewWillAppear(animated)
+        uiWebView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.setStatusBarColor()")
     }
     
     
@@ -154,6 +154,7 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         let fileURL = NSURL(string: relativePath, relativeToURL: baseURL);
         let URLRequest = NSURLRequest(URL: fileURL!);
         webView.loadRequest(URLRequest)
+
     }
     
     
@@ -192,11 +193,11 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 }
             }
             
-            if params["setiOSStatusBarColorRed"] != nil {
+            if params["setiOSStatusBarColor"] != nil {
                 
                 // Add UIViewControllerBasedStatusBarAppearance YES to Info.plist
                 
-                let red = params["setiOSStatusBarColorRed"]?.floatValue
+                let red = params["setiOSStatusBarColor"]?.floatValue
                 let redValue:CGFloat = CGFloat(red!) / 255.0
                 
                 let green = params["green"]?.floatValue
@@ -249,21 +250,21 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
             }
             
             if let newScreen = params["newScreen"] as? String {
-                if newScreen.hasSuffix(".html") {
-                    let nextScreen = RHYWebViewController()
-                    let showStatusBar = params["showNavigationBar"] as? String
+                if newScreen.containsString(".html") {
+                    let nextScreen = self.storyboard!.instantiateViewControllerWithIdentifier("RHYWebViewControllerStoryboardID") as! RHYWebViewController
+//                    let showStatusBar = params["showNavigationBar"] as? String
                     nextScreen.HTMLFile = newScreen
                     nextScreen.menuContainerViewController = self.menuContainerViewController
                     
-                    if(showStatusBar == "true") {
-                        nextScreen.showNavigationBar = true;
-//                        self.navigationController?.setNavigationBarHidden(false, animated: true)
-//                        nextScreen.view.addConstraint(self.uiWebViewNavigationBarConstraint)
-                    } else {
-                        nextScreen.showNavigationBar = false;
-//                        self.navigationController?.setNavigationBarHidden(true, animated: true)
-//                        nextScreen.view.addConstraint(self.uiWebViewStatusBarConstraint)
-                    }
+//                    if(showStatusBar == "true") {
+//                        nextScreen.showNavigationBar = true;
+////                        self.navigationController?.setNavigationBarHidden(false, animated: true)
+////                        nextScreen.view.addConstraint(self.uiWebViewNavigationBarConstraint)
+//                    } else {
+//                        nextScreen.showNavigationBar = false;
+////                        self.navigationController?.setNavigationBarHidden(true, animated: true)
+////                        nextScreen.view.addConstraint(self.uiWebViewStatusBarConstraint)
+//                    }
                     
                     self.navigationController?.pushViewController(nextScreen, animated: true)
                 } else {
@@ -278,10 +279,11 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 let totalScreens = self.navigationController?.viewControllers.count
                 let destinationViewControllerIndex = totalScreens! - screens! - 1    // Offset 0 indexing.
                 let destinationViewController = self.navigationController?.viewControllers[destinationViewControllerIndex] as! RHYWebViewController
+
+                self.navigationController?.popToViewController(destinationViewController, animated: true)
                 if let callback = params["callback"] as? String {
                     destinationViewController.uiWebView.stringByEvaluatingJavaScriptFromString("\(callback)()")
                 }
-                self.navigationController?.popToViewController(destinationViewController, animated: true)
             }
             
             if let menuHTMLFile = params["createMenu"] as? String {
@@ -497,13 +499,15 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 if(enabled == "true") {
                     self.navigationController!.setNavigationBarHidden(false, animated: false)
                     self.uiWebView.removeConstraint(self.uiWebViewStatusBarConstraint)
-                    self.uiWebView.addConstraint(self.uiWebViewNavigationBarConstraint)
+//                    self.uiWebView.addConstraint(self.uiWebViewNavigationBarConstraint)
                     
                     
                 } else {
-                    self.navigationController!.setNavigationBarHidden(true, animated: false)
-                    self.uiWebView.removeConstraint(self.uiWebViewNavigationBarConstraint)
-                    self.uiWebView.addConstraint(self.uiWebViewStatusBarConstraint)
+                    if let navigationController = self.navigationController {
+                        navigationController.setNavigationBarHidden(true, animated: false)
+                        self.uiWebView.removeConstraint(self.uiWebViewNavigationBarConstraint)
+                        self.uiWebView.addConstraint(self.uiWebViewStatusBarConstraint)
+                    }
                 }
             }
             
@@ -543,72 +547,60 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
                 
                 let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertControllerStyle.Alert)
                 
-                alert.addAction(UIAlertAction(title: buttonText, style: UIAlertActionStyle.Default, handler: nil))
+                alert.addAction(UIAlertAction(title: buttonText, style: UIAlertActionStyle.Default, handler: { (UIAlertAction) -> Void in
+                    if(params["callback"] != nil) {
+                        let callback = params["callback"] as! String
+                        self.uiWebView.stringByEvaluatingJavaScriptFromString("\(callback)()")
+                    }
+                }));
                 
                 self.presentViewController(alert, animated: true, completion: nil)
             }
             
-            if params["showDatePicker"] != nil {
-                let datePicker = RHYCustomPickerView();
+            if params["logout"] != nil {
+    
+                let indexViewController = self.storyboard!.instantiateViewControllerWithIdentifier("RHYWebViewControllerStoryboardID") as! RHYWebViewController
+                let loginViewController = self.storyboard!.instantiateViewControllerWithIdentifier("RHYWebViewControllerStoryboardID") as! RHYWebViewController
+                indexViewController.HTMLFile = "index.html"
+                loginViewController.HTMLFile = "login.html"
                 
-                datePicker.translatesAutoresizingMaskIntoConstraints = false
-                self.view!.addSubview(datePicker)
-                
-                let horizontalContraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterX, multiplier: 1, constant: 0)
-                view.addConstraint(horizontalContraint)
-                
-                let verticalConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1, constant: 0)
-                view.addConstraint(verticalConstraint)
-                
-                let widthConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
-                view.addConstraint(widthConstraint)
-                
-                let heightConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
-                view.addConstraint(heightConstraint)
-                
-                self.view.layoutIfNeeded();
+                navigationController!.setViewControllers([indexViewController, loginViewController], animated: true)
             }
             
-            if params["showAlert"] != nil {
-                let message = params["showAlert"] as! String;
-                var title : String? = params["title"] as? String
-                var buttonText : String? = params["button_text"] as? String
+            if params["showConfirmDialog"] != nil {
+                let message = params["showConfirmDialog"] as! String;
+                var title = "Mensaje"
+                var buttonOk = "Aceptar"
+                var buttonCancel = "Cancelar"
                 
-                if(title == nil) {
-                    title = "Mensaje";
+                if let passedTitle = params["title"] as? String {
+                    title = passedTitle
                 }
                 
-                if(buttonText == nil) {
-                    buttonText = "Aceptar";
+                if let passedButtonOk = params["buttonOk"] as? String {
+                    buttonOk = passedButtonOk
+                }
+                
+                if let passedButtonCancel = params["buttonCancel"] as? String {
+                    buttonCancel = passedButtonCancel
                 }
                 
                 let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertControllerStyle.Alert)
                 
-                alert.addAction(UIAlertAction(title: buttonText, style: UIAlertActionStyle.Default, handler: nil))
+                alert.addAction(UIAlertAction(title: buttonOk, style: UIAlertActionStyle.Default, handler: { (UIAlertAction) -> Void in
+                    if(params["callback"] != nil) {
+                        let callback = params["callback"] as! String
+                        self.uiWebView.stringByEvaluatingJavaScriptFromString("\(callback)()")
+                    }
+                }));
+                
+                alert.addAction(UIAlertAction(title: buttonCancel, style: UIAlertActionStyle.Default, handler: { (UIAlertAction) -> Void in
+                    debugPrint("cancelado")
+                }));
                 
                 self.presentViewController(alert, animated: true, completion: nil)
             }
             
-            if params["showDatePicker"] != nil {
-                let datePicker = RHYCustomPickerView();
-                
-                datePicker.translatesAutoresizingMaskIntoConstraints = false
-                self.view!.addSubview(datePicker)
-                
-                let horizontalContraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterX, multiplier: 1, constant: 0)
-                view.addConstraint(horizontalContraint)
-                
-                let verticalConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1, constant: 0)
-                view.addConstraint(verticalConstraint)
-                
-                let widthConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
-                view.addConstraint(widthConstraint)
-                
-                let heightConstraint = NSLayoutConstraint(item: datePicker, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.NotAnAttribute, multiplier: 1, constant: 100)
-                view.addConstraint(heightConstraint)
-                
-                self.view.layoutIfNeeded();
-            }
             // We handled JavaScript communication, so there is no page to be loaded.
             return false
         }
@@ -645,7 +637,7 @@ class RHYWebViewController: UIViewController, UIWebViewDelegate {
         // window indicates whether the web view is currently visible.
         
         if (webView.window != nil) {
-            //webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.setStatusBarColor()")
+            webView.stringByEvaluatingJavaScriptFromString("Rhy.iOS.setStatusBarColor()")
         }
         
         for onLoadListener in self.onLoadListeners {
